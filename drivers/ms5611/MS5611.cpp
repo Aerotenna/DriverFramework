@@ -325,7 +325,7 @@ int MS5611::stop()
 int MS5611::_request(uint8_t cmd)
 {
 	int ret;
-#if defined(__DF_OCPOC_
+#if defined(__DF_OCPOC)
 	ret = 0;
 #else
 	_retries = 0;
