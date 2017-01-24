@@ -170,10 +170,15 @@ int MS5611::loadCalibration()
 
 	for (int i = 0; i < 8; ++i) {
 		uint8_t cmd = ADDR_PROM_SETUP + (i * 2);
-
+#if !defined(__DF_OCPOC)
 		_retries = 5;
+#endif
 
+#if defined(__DF_OCPOC)
+		if (_bulkRead(cmd, &prom_buf[0], 2) < 0) {
+#else
 		if (_readReg(cmd, &prom_buf[0], 2) < 0) {
+#endif
 			DF_LOG_ERR("Read calibration error");
 			break;
 		}
@@ -215,9 +220,13 @@ int MS5611::ms5611_init()
 	m_sensor_data.error_counter = 0;
 	m_synchronize.unlock();
 
+#if defined(__DF_OCPOC)
+	int result = _setBusFrequency(SPI_FREQUENCY_1MHZ);
+#else
 	int result = _setSlaveConfig(MS5611_SLAVE_ADDRESS,
 				     MS5611_BUS_FREQUENCY_IN_KHZ,
 				     MS5611_TRANSFER_TIMEOUT_IN_USECS);
+#endif
 
 	if (result < 0) {
 		DF_LOG_ERR("could not set slave config");
@@ -250,9 +259,13 @@ int MS5611::ms5611_init()
 int MS5611::reset()
 {
 	int result;
+#if defined(__DF_OCPOC)
+	result = 0;
+#else
 	uint8_t cmd = ADDR_RESET_CMD;
 	_retries = 10;
 	result = _writeReg(cmd, nullptr, 0);
+#endif
 
 	if (result < 0) {
 		DF_LOG_ERR("Unable to reset device: %d", result);
@@ -266,7 +279,11 @@ int MS5611::start()
 {
 	int result = 0;
 
+#if defined(__DF_OCPOC)
+	result = SPIDevObj::start();
+#else
 	result = I2CDevObj::start();
+#endif
 
 	if (result != 0) {
 		DF_LOG_ERR("error: could not start DevObj");
@@ -308,9 +325,12 @@ int MS5611::stop()
 int MS5611::_request(uint8_t cmd)
 {
 	int ret;
-
+#if defined(__DF_OCPOC_
+	ret = 0;
+#else
 	_retries = 0;
 	ret = _writeReg(cmd, nullptr, 0);
+#endif
 
 	if (ret < 0) {
 		DF_LOG_ERR("error: request failed");
@@ -329,10 +349,16 @@ int MS5611::_collect(uint32_t &raw)
 	} cvt;
 
 	uint8_t buf[3];
-
+#if !defined(__DF_OCPOC)
 	_retries = 0;
+#endif
+
 	uint8_t cmd = ADDR_CMD_ADC_READ;
+#if defined(__DF_OCPOC)
+	ret = _bulkRead(cmd, &buf[0], 3);
+#else
 	ret = _readReg(cmd, &buf[0], 3);
+#endif
 
 	if (ret < 0) {
 		raw = 0;
