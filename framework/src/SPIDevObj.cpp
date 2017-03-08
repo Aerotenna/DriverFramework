@@ -209,6 +209,47 @@ int SPIDevObj::_writeReg(uint8_t address, uint8_t val)
 	return _writeReg(address, &val, 1);
 }
 
+int SPIDevObj::_transfer(uint8_t *write_buffer, uint8_t *read_buffer, uint8_t len)
+{
+#if defined(__RPI) || defined(__EDISON) || defined(__OCPOC)
+	/* implement sensor interface via rpi2 spi */
+	struct spi_ioc_transfer spi_transfer; // datastructures for linux spi interface
+	memset(&spi_transfer, 0, sizeof(spi_ioc_transfer));
+
+	write_buffer[0] |= DIR_WRITE; // write mode
+
+	spi_transfer.rx_buf = (unsigned long)read_buffer;
+	spi_transfer.len = len;
+	spi_transfer.tx_buf = (unsigned long)write_buffer;
+	// spi_transfer.speed_hz = SPI_FREQUENCY_1MHZ; // temporarily override spi speed
+	spi_transfer.bits_per_word = 8;
+	spi_transfer.delay_usecs = 0;
+
+	int result = 0;
+	result = ::ioctl(m_fd, SPI_IOC_MESSAGE(1), &spi_transfer);
+
+	if (result != len) {
+	DF_LOG_ERR("Error: SPI write failed. Reported %d bytes written (%d)", result, errno);
+	return -1;
+	}
+
+	return 0;
+#else
+
+	write_buffer[0] |=  DIR_WRITE;
+
+	/* Save the address of the register to read from in the write buffer for the combined write. */
+	int bytes_written = ::write(m_fd, (char *) write_buffer, len);
+
+	if (bytes_written != len) {
+	DF_LOG_ERR("Error: SPI write failed. Reported %d bytes written (%d)", bytes_written, errno);
+	return -1;
+	}
+
+	return 0;
+#endif
+}
+
 int SPIDevObj::_writeReg(uint8_t address, uint8_t *in_buffer, uint16_t length)
 {
 #if defined(__DF_RPI) || defined(__DF_EDISON) || defined(__DF_BEBOP) || defined(__DF_OCPOC)
