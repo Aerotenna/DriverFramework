@@ -259,10 +259,14 @@ int MS5611::ms5611_init()
 int MS5611::reset()
 {
 	int result;
-#if defined(__DF_OCPOC)
-	result = 0;
-#else
 	uint8_t cmd = ADDR_RESET_CMD;
+
+#if defined(__DF_OCPOC)
+    uint8_t wbuf[1];
+    uint8_t rbuf[1];
+    wbuf[0] = cmd;
+	result = _transfer(wbuf, rbuf, 1);
+#else
 	_retries = 10;
 	result = _writeReg(cmd, nullptr, 0);
 #endif
@@ -325,8 +329,13 @@ int MS5611::stop()
 int MS5611::_request(uint8_t cmd)
 {
 	int ret;
+
 #if defined(__DF_OCPOC)
-	ret = 0;
+    uint8_t wbuf[1];
+    uint8_t rbuf[1];
+    wbuf[0] = cmd;
+    
+	ret = _transfer(wbuf, rbuf, 1);
 #else
 	_retries = 0;
 	ret = _writeReg(cmd, nullptr, 0);
@@ -348,17 +357,30 @@ int MS5611::_collect(uint32_t &raw)
 		uint32_t w;
 	} cvt;
 
-	uint8_t buf[3];
-#if !defined(__DF_OCPOC)
-	_retries = 0;
-#endif
-
 	uint8_t cmd = ADDR_CMD_ADC_READ;
+
 #if defined(__DF_OCPOC)
-	ret = _bulkRead(cmd, &buf[0], 3);
+	uint8_t buf[4];
+	uint8_t wbuf[4];
+	wbuf[0] = cmd;
+	
+	ret = _transfer(&wbuf[0], &buf[0], 4);
+	
+	if (ret < 0) {
+		raw = 0;
+		return -1;
+	}
+
+	cvt.b[0] = buf[3];
+	cvt.b[1] = buf[2];
+	cvt.b[2] = buf[1];
+	cvt.b[3] = 0;
+	raw = cvt.w;
+
 #else
+	_retries = 0;
+	uint8_t buf[3];
 	ret = _readReg(cmd, &buf[0], 3);
-#endif
 
 	if (ret < 0) {
 		raw = 0;
@@ -370,6 +392,7 @@ int MS5611::_collect(uint32_t &raw)
 	cvt.b[2] = buf[0];
 	cvt.b[3] = 0;
 	raw = cvt.w;
+#endif
 
 	return 0;
 }
@@ -419,7 +442,6 @@ void MS5611::_measure(void)
 		}
 
 		m_measure_phase = 0;
-
 
 		m_synchronize.lock();
 
