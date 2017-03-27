@@ -63,6 +63,8 @@ struct ms5611_sensor_measurement {
   #define BARO_DEVICE_PATH "/dev/i2c-1"
 #endif
 
+#define PRESSURE_FILTER_SAMPLES 10
+
 // update frequency is 50 Hz (44.4-51.3Hz ) at 8x oversampling
 #define MS5611_MEASURE_INTERVAL_US 20000 // microseconds
 #define MS5611_CONVERSION_INTERVAL_US 10000 /*microseconds */
@@ -111,6 +113,12 @@ protected:
 	// 24674867/100 = 246748.67 Pa = 24674867 hPa
 	int64_t convertPressure(int64_t adc_pressure);
 
+	// Filter for pressure reading from Baro
+	// -- In SPI mode, Baro was reading negative pressure
+	//    values on a regular basis. This is a work-around
+	//    until we get a hardware fix for this issue.
+	int64_t pressure_filter(int64_t curr_pressure);
+
 	// Returns temperature in DegC, resolution is 0.01 DegC
 	// Output value of “5123” equals 51.23 DegC
 	virtual int32_t convertTemperature(int32_t adc_temperature);
@@ -137,6 +145,13 @@ protected:
 	uint32_t m_pressure_from_sensor;
 
 	int m_measure_phase;
+
+	int     _filter_idx = 0;
+	int64_t _p_filt_array[PRESSURE_FILTER_SAMPLES];
+	int64_t _p_filt = 101325;
+
+	uint8_t _filter_state = 0;
+	uint8_t _filter_init_counter = 0;
 };
 
 }; // namespace DriverFramework

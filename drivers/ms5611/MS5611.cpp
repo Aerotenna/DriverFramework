@@ -63,8 +63,100 @@ int64_t MS5611::convertPressure(int64_t adc_P)
 {
 	// Conversion from the datasheet
 	int64_t p = (((adc_P * m_raw_sensor_convertion.sens) >> 21) - m_raw_sensor_convertion.off) >> 15;
+
+#if defined(__DF_OCPOC)
+	p = pressure_filter(p);
+#endif
+
 	m_raw_sensor_convertion.pressure_mbar = p;
 	return p;
+}
+
+// Filter for pressure reading from Baro
+// -- called from convertPressure()
+int64_t MS5611::pressure_filter(int64_t curr_pressure)
+{
+	// Initialize the filter
+	if (_filter_state == 0) {
+
+		// reject any negative pressure readings
+		if (curr_pressure < 0) {
+			return _p_filt;
+		}
+
+		// store the current pressure reading
+		_p_filt_array[_filter_init_counter] = curr_pressure;
+
+		// Once all indices of _p_filt_array are set for the first time,
+		// apply a median filter to reject any unreasonable pressure readings
+		// (e.g. convertPressure() returns pressure that reads a 900m change in altitude)
+		if (++_filter_init_counter == PRESSURE_FILTER_SAMPLES) {
+
+			// sort the pressure readings in _p_filt_array
+			for (uint8_t i=0; i < PRESSURE_FILTER_SAMPLES; i++) {
+				for (uint8_t j=PRESSURE_FILTER_SAMPLES-1; j > i; j--) {
+					if (_p_filt_array[j] < _p_filt_array[j-1]) {
+						int64_t tmp = _p_filt_array[j-1];
+						_p_filt_array[j-1] = _p_filt_array[j];
+						_p_filt_array[j]   = tmp;
+					}
+				}
+			}
+
+			// set _p_filt to median of initialized _p_filt_array
+			if (PRESSURE_FILTER_SAMPLES % 2 == 0) {
+				// if size of the array is even, median is the average of the
+				// two middle indices of the sorted array
+
+				int mid_idx = PRESSURE_FILTER_SAMPLES / 2;
+
+				_p_filt = (_p_filt_array[mid_idx] + _p_filt_array[mid_idx-1]) / 2;
+
+			} else {
+				_p_filt = _p_filt_array[PRESSURE_FILTER_SAMPLES/2];
+			}
+
+			// set all indices of _p_filt_array equal to median
+			for (uint8_t i=0; i < PRESSURE_FILTER_SAMPLES; i++) {
+				_p_filt_array[i] = _p_filt;
+			}
+
+			// set filter state to skip initialization
+			_filter_state = 1;
+
+		} else {
+			// if initialization isn't finished, set _p_filt to current pressure reading
+			_p_filt = curr_pressure;
+		}
+
+		return _p_filt;
+	}
+
+	// filter out any negative pressure reading
+	if (curr_pressure < 0 || (curr_pressure - _p_filt) > 1000 || (curr_pressure - _p_filt) < -1000) {
+		return _p_filt;
+	}
+
+	// set one index of _p_filt_array to the current pressure reading
+	_p_filt_array[_filter_idx] = curr_pressure;
+
+	// cycle _filter_idx back to 0
+	if (++_filter_idx == PRESSURE_FILTER_SAMPLES) {
+		_filter_idx = 0;
+	}
+
+	// calculate average of _p_filt_array values
+	int64_t _p_filt_sum = 0;
+
+	for (uint8_t i = 0; i < PRESSURE_FILTER_SAMPLES; i++) {
+		_p_filt_sum += _p_filt_array[i];
+	}
+
+	_p_filt = _p_filt_sum / PRESSURE_FILTER_SAMPLES;
+
+	// return average pressure over the number of samples
+	// defined by PRESSURE_FILTER_SAMPLES
+	return _p_filt;
 }
 
 int32_t MS5611::convertTemperature(int32_t adc_T)
@@ -239,6 +331,12 @@ int MS5611::ms5611_init()
 	}
 
 	result = loadCalibration();
+
+#if defined(__BARO_USE_SPI)
+	if (_setBusFrequency(SPI_FREQUENCY_10MHZ) < 0) {
+		printf("Could not set SPI Bus Frequency to 10MHz");
+	}
+#endif
 
 	if (result != 0) {
 		DF_LOG_ERR("error: unable to complete initialization of the MS5611 pressure sensor");
