@@ -170,13 +170,11 @@ int MS5611::loadCalibration()
 
 	for (int i = 0; i < 8; ++i) {
 		uint8_t cmd = ADDR_PROM_SETUP + (i * 2);
-#if !defined(__DF_OCPOC)
-		_retries = 5;
-#endif
 
-#if defined(__DF_OCPOC)
+#if defined(__BARO_USE_SPI)
 		if (_bulkRead(cmd, &prom_buf[0], 2) < 0) {
 #else
+		_retries = 5;
 		if (_readReg(cmd, &prom_buf[0], 2) < 0) {
 #endif
 			DF_LOG_ERR("Read calibration error");
@@ -220,7 +218,7 @@ int MS5611::ms5611_init()
 	m_sensor_data.error_counter = 0;
 	m_synchronize.unlock();
 
-#if defined(__DF_OCPOC)
+#if defined(__BARO_USE_SPI)
 	int result = _setBusFrequency(SPI_FREQUENCY_1MHZ);
 #else
 	int result = _setSlaveConfig(MS5611_SLAVE_ADDRESS,
@@ -261,14 +259,17 @@ int MS5611::reset()
 	int result;
 	uint8_t cmd = ADDR_RESET_CMD;
 
-#if defined(__DF_OCPOC)
-    uint8_t wbuf[1];
-    uint8_t rbuf[1];
-    wbuf[0] = cmd;
+#if defined(__BARO_USE_SPI)
+	uint8_t wbuf[1];
+	uint8_t rbuf[1];
+	wbuf[0] = cmd;
 	result = _transfer(wbuf, rbuf, 1);
+
 #else
+
 	_retries = 10;
 	result = _writeReg(cmd, nullptr, 0);
+
 #endif
 
 	if (result < 0) {
@@ -283,7 +284,7 @@ int MS5611::start()
 {
 	int result = 0;
 
-#if defined(__DF_OCPOC)
+#if defined(__BARO_USE_SPI)
 	result = SPIDevObj::start();
 #else
 	result = I2CDevObj::start();
@@ -330,11 +331,11 @@ int MS5611::_request(uint8_t cmd)
 {
 	int ret;
 
-#if defined(__DF_OCPOC)
-    uint8_t wbuf[1];
-    uint8_t rbuf[1];
-    wbuf[0] = cmd;
-    
+#if defined(__BARO_USE_SPI)
+	uint8_t wbuf[1];
+	uint8_t rbuf[1];
+
+	wbuf[0] = cmd;
 	ret = _transfer(wbuf, rbuf, 1);
 #else
 	_retries = 0;
@@ -359,13 +360,13 @@ int MS5611::_collect(uint32_t &raw)
 
 	uint8_t cmd = ADDR_CMD_ADC_READ;
 
-#if defined(__DF_OCPOC)
+#if defined(__BARO_USE_SPI)
 	uint8_t buf[4];
 	uint8_t wbuf[4];
 	wbuf[0] = cmd;
-	
+
 	ret = _transfer(&wbuf[0], &buf[0], 4);
-	
+
 	if (ret < 0) {
 		raw = 0;
 		return -1;
@@ -377,9 +378,12 @@ int MS5611::_collect(uint32_t &raw)
 	cvt.b[3] = 0;
 	raw = cvt.w;
 
+	return 0;
+
 #else
-	_retries = 0;
 	uint8_t buf[3];
+	_retries = 0;
+
 	ret = _readReg(cmd, &buf[0], 3);
 
 	if (ret < 0) {
@@ -392,9 +396,9 @@ int MS5611::_collect(uint32_t &raw)
 	cvt.b[2] = buf[0];
 	cvt.b[3] = 0;
 	raw = cvt.w;
-#endif
 
 	return 0;
+#endif
 }
 
 void MS5611::_measure(void)
