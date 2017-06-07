@@ -36,7 +36,7 @@
 #include <stdint.h>
 #include "SyncObj.hpp"
 
-#if defined(__IMU_USE_I2C)
+#if defined (__IMU_USE_I2C)
 #include "I2CDevObj.hpp"
 #else
 #include "SPIDevObj.hpp"
@@ -52,6 +52,7 @@
 #elif defined(__DF_EDISON)
 #define IMU_DEVICE_PATH "/dev/spidev5.1"
 #elif defined(__DF_OCPOC)
+#define IMU_DEVICE_PATH3 "/dev/i2c-0" 
 #define IMU_DEVICE_PATH "/dev/spidev1.0"
 #else
 #define IMU_DEVICE_PATH "/dev/spidev0.0"

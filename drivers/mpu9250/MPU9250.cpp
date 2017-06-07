@@ -251,6 +251,7 @@ int MPU9250::start()
 {
 	/* Open the device path specified in the class initialization. */
 	// attempt to open device in start()
+
 	int result = SPIDevObj::start();
 
 	if (result != 0) {
@@ -274,6 +275,34 @@ int MPU9250::start()
 		DF_LOG_ERR("Unable to communicate with the MPU9250 sensor");
 		goto exit;
 	}
+
+        /* Open the device path specified in the class initialization. */
+        // attempt to open device in start()
+/*        int result = I2CDevObj::start();
+
+        if (result < 0) {
+                DF_LOG_ERR("DevObj start failed");
+                DF_LOG_ERR("Unable to open the device path: %s", m_dev_path);
+                return result;
+        }
+
+        result = _setSlaveConfig(MPU6050_SLAVE_ADDRESS,
+                                 MPU6050_BUS_FREQUENCY_IN_KHZ,
+                                 MPU6050_TRANSFER_TIMEOUT_IN_USECS);
+
+        if (result < 0) {
+                DF_LOG_ERR("Could not set slave config");
+        }
+*/
+        /* Try to talk to the sensor. */
+/*        uint8_t sensor_id;
+        result = _readReg(MPUREG_WHOAMI, &sensor_id, 1);
+
+        if (result < 0) {
+                DF_LOG_ERR("Unable to communicate with the sensor");
+                return -1;
+        }
+*/
 
 	if (sensor_id != MPU_WHOAMI_9250) {
 		DF_LOG_ERR("MPU9250 sensor WHOAMI wrong: 0x%X, should be: 0x%X",
