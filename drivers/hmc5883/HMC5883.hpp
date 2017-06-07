@@ -38,7 +38,8 @@
 namespace DriverFramework
 {
 #if defined(__DF_OCPOC)
-  #define MAG_DEVICE_PATH "/dev/i2c-0"
+  #define MAG_DEVICE_PATH "/dev/i2c-3"
+  #define MAG_DEVICE_PATH2 "/dev/i2c-4"
 #else
   #define MAG_DEVICE_PATH "/dev/iic-2"
 #endif
@@ -55,8 +56,15 @@ namespace DriverFramework
 class HMC5883 : public MagSensor
 {
 public:
-	HMC5883(const char *device_path) :
+	HMC5883( const char *device_path) :
 		MagSensor(device_path, HMC5883_MEASURE_INTERVAL_US),
+		_measurement_requested(false)
+	{
+		m_id.dev_id_s.devtype = DRV_DF_DEVTYPE_HMC5883;
+		m_id.dev_id_s.address = HMC5883_SLAVE_ADDRESS;
+	}
+	HMC5883(const char *device_name, const char *device_path) :
+		MagSensor(device_name,device_path, HMC5883_MEASURE_INTERVAL_US),
 		_measurement_requested(false)
 	{
 		m_id.dev_id_s.devtype = DRV_DF_DEVTYPE_HMC5883;
