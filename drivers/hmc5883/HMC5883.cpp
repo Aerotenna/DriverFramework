@@ -90,8 +90,8 @@ int HMC5883::hmc5883_init()
 	if (sensor_id != HMC5883_ID_A) {
 		DF_LOG_ERR("HMC5883 sensor ID_A returned 0x%x instead of 0x%x or %x", sensor_id, HMC5883_ID_A);
 		return -1;
-	} else {
-		DF_LOG_ERR("HMC5883 sensor ID_A is expected 0x%x", sensor_id);
+//	} else {
+//		DF_LOG_ERR("HMC5883 sensor ID_A is expected 0x%x", sensor_id);
 	}
 
 	result = _readReg(HMC5883_REG_ID_B, &sensor_id, sizeof(sensor_id));
@@ -99,8 +99,8 @@ int HMC5883::hmc5883_init()
 	if (result != 0) {
 		DF_LOG_ERR("error: unable to communicate with the hmc5883 mag sensor");
 		return -EIO;
-	} else {
-                DF_LOG_ERR("HMC5883 sensor ID_B is expected 0x%x", sensor_id);
+//	} else {
+  //              DF_LOG_ERR("HMC5883 sensor ID_B is expected 0x%x", sensor_id);
         }
 
 
@@ -157,7 +157,7 @@ int HMC5883::start()
 	result = hmc5883_init();
 
 	if (result != 0) {
-		DF_LOG_ERR("error: mag sensor initialization failed, sensor read thread not started");
+		DF_LOG_DEBUG("error: mag sensor initialization failed, sensor read thread not started");
 		goto exit;
 	} else {
 		DF_LOG_ERR("mag sensor initialized");
@@ -240,10 +240,20 @@ void HMC5883::_measure(void)
 
 	if (result != 0) {
 		// TODO: count it as an error and keep going
-		DF_LOG_ERR("error: setting sensor mode failed");
+		DF_LOG_DEBUG("error: setting sensor mode failed");
+		_is_running = false;
+	} else {
+		_is_running = true;
 	}
 
 	_measurement_requested = true;
+}
+
+int HMC5883::is_running()
+{
+
+	return _is_running;
+
 }
 
 int HMC5883::_publish(struct mag_sensor_data &data)
