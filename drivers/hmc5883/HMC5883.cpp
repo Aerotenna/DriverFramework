@@ -83,7 +83,9 @@ int HMC5883::hmc5883_init()
 	result = _readReg(HMC5883_REG_ID_A, &sensor_id, sizeof(sensor_id));
 
 	if (result != 0) {
+#if defined(__DF_SHOW_ERR)
 		DF_LOG_ERR("error: unable to communicate with the hmc5883 mag sensor");
+#endif
 		return -EIO;
 	}
 
@@ -159,8 +161,8 @@ int HMC5883::start()
 	if (result != 0) {
 		DF_LOG_DEBUG("error: mag sensor initialization failed, sensor read thread not started");
 		goto exit;
-	} else {
-		DF_LOG_ERR("mag sensor initialized");
+	//} else {
+	//	DF_LOG_ERR("mag sensor initialized");
 	}
 
 
