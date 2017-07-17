@@ -56,7 +56,7 @@
 #define HMC5883_ID_C		('3')
 
 #define HMC5883_BITS_CONFIG_A_CONTINUOUS_75HZ (0x6 << 2)
-#define HMC5883_BITS_CONFIG_A_OUTPUT_RATE (0x14)	//0x04 is 3 H, 
+#define HMC5883_BITS_CONFIG_A_OUTPUT_RATE (0x16)	//0x04 is 3 H, 
 							//0x0c is 7.5 Hz, 
 							//0x10 is 15 Hz (chip default)
 							//0x14 is 30 Hz
@@ -97,8 +97,6 @@ int HMC5883::hmc5883_init()
 	if (sensor_id != HMC5883_ID_A) {
 		DF_LOG_ERR("HMC5883 sensor ID_A returned 0x%x instead of 0x%x or %x", sensor_id, HMC5883_ID_A);
 		return -1;
-//	} else {
-//		DF_LOG_ERR("HMC5883 sensor ID_A is expected 0x%x", sensor_id);
 	}
 
 	result = _readReg(HMC5883_REG_ID_B, &sensor_id, sizeof(sensor_id));
@@ -106,8 +104,6 @@ int HMC5883::hmc5883_init()
 	if (result != 0) {
 		DF_LOG_ERR("error: unable to communicate with the hmc5883 mag sensor");
 		return -EIO;
-//	} else {
-  //              DF_LOG_ERR("HMC5883 sensor ID_B is expected 0x%x", sensor_id);
         }
 
 
@@ -135,7 +131,8 @@ int HMC5883::hmc5883_init()
 		DF_LOG_ERR("error: sensor configuration B failed");
 		return -EIO;
 	}
-
+//leave as reference until FIFO issues are resolved
+/*
 	uint8_t config_a=HMC5883_BITS_CONFIG_A_OUTPUT_RATE;
 
 	result = _writeReg(HMC5883_REG_CONFIG_A,&config_a,sizeof(config_a));
@@ -152,6 +149,8 @@ int HMC5883::hmc5883_init()
 		DF_LOG_ERR("error: read configuration A failed");
 		return -EIO;
 	}
+*/
+	//DF_LOG_ERR("configuration A: %u",config_a_read);
 
 	usleep(1000);
 	return 0;
@@ -182,8 +181,6 @@ int HMC5883::start()
 	if (result != 0) {
 		DF_LOG_DEBUG("error: mag sensor initialization failed, sensor read thread not started");
 		goto exit;
-	//} else {
-	//	DF_LOG_ERR("mag sensor initialized");
 	}
 
 
@@ -272,6 +269,7 @@ void HMC5883::_measure(void)
 	_measurement_requested = true;
 }
 
+//added so that voting class in triplex wrapper can check and only use 'healthy' modules
 int HMC5883::is_running()
 {
 
