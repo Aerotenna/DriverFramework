@@ -127,6 +127,7 @@ int I2CDevObj::_readReg(uint8_t address, uint8_t *out_buffer, int length)
 	ioctl_write_read.read_buf_len = length;
 	int bytes_read = ::ioctl(m_fd, I2C_IOCTL_RDWR, &ioctl_write_read);
 
+
 	if (bytes_read != length) {
 		DF_LOG_ERR(
 			"error: read register reports a read of %d bytes, but attempted to set %d bytes",
@@ -198,8 +199,10 @@ int I2CDevObj::_simple_read(uint8_t *out_buffer, int length)
 	bytes_read = ::read(m_fd, out_buffer, length);
 
 	if (bytes_read != length) {
+#if defined (__DF_SHOW_ERR)
 		DF_LOG_ERR("error: read register reports a read of %d bytes, but attempted to set %d bytes",
 			   bytes_read, length);
+#endif
 		return -1;
 	}
 
@@ -241,9 +244,14 @@ int I2CDevObj::_writeReg(uint8_t address, uint8_t *in_buffer, int length)
 		int bytes_written = ::write(m_fd, (char *) write_buffer, length + 1);
 
 		if (bytes_written != length + 1) {
+			DF_LOG_DEBUG("Error: i2c write failed. Reported %d bytes written",
+                                   bytes_written);
+
+#if defined(__DF_SHOW_ERR)
 			DF_LOG_ERR("Error: i2c write failed. Reported %d bytes written",
 				   bytes_written);
 
+#endif
 		} else {
 			return 0;
 		}
