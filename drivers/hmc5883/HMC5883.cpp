@@ -56,6 +56,11 @@
 #define HMC5883_ID_C		('3')
 
 #define HMC5883_BITS_CONFIG_A_CONTINUOUS_75HZ (0x6 << 2)
+#define HMC5883_BITS_CONFIG_A_OUTPUT_RATE (0x14)	//0x04 is 3 H, 
+							//0x0c is 7.5 Hz, 
+							//0x10 is 15 Hz (chip default)
+							//0x14 is 30 Hz
+							//0x16 is 75 Hz
 
 #define HMC5883_BITS_CONFIG_B_RANGE_1GA3    (0x01 << 5)
 
@@ -131,6 +136,22 @@ int HMC5883::hmc5883_init()
 		return -EIO;
 	}
 
+	uint8_t config_a=HMC5883_BITS_CONFIG_A_OUTPUT_RATE;
+
+	result = _writeReg(HMC5883_REG_CONFIG_A,&config_a,sizeof(config_a));
+
+	if (result != 0) {
+		DF_LOG_ERR("error: write configuration A failed");
+		return -EIO;
+	}
+
+	uint8_t config_a_read;
+	result = _readReg(HMC5883_REG_CONFIG_A,&config_a_read, sizeof(config_a));
+
+	if (result != 0) {
+		DF_LOG_ERR("error: read configuration A failed");
+		return -EIO;
+	}
 
 	usleep(1000);
 	return 0;
