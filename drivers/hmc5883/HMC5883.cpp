@@ -121,6 +121,16 @@ int HMC5883::hmc5883_init()
 		return -EIO;
 	}
 
+#if defined(__DF_OCPOC)
+	// Set continuous measurement mode
+	uint8_t mode = HMC5883_BITS_CONFIG_A_CONTINUOUS_75HZ;
+	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
+
+	if (result != 0) {
+		DF_LOG_ERR("error: setting sensor mode failed");
+	}
+
+#endif
 
 	usleep(1000);
 	return 0;
@@ -247,39 +257,16 @@ void HMC5883::_measure()
 #endif
 	}
 
-#if defined(__DF_OCPOC)
-
-	if (I2CDevObj::start() != 0) {
-		DF_LOG_ERR("error: could not start I2CDevObj");
-	}
-
-	/* Configure the I2C bus parameters for the mag sensor. */
-	result = _setSlaveConfig(HMC5883_SLAVE_ADDRESS,
-				 HMC5883_BUS_FREQUENCY_IN_KHZ,
-				 HMC5883_TRANSFER_TIMEOUT_IN_USECS);
-
-	if (result != 0) {
-		DF_LOG_ERR("I2C slave configuration failed");
-	}
-
-#endif
-
+#if !defined(__DF_OCPOC)
 	/* Request next measurement. */
 	uint8_t mode = HMC5883_BITS_MODE_SINGLE_MODE;
 	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
-
-#if defined(__DF_OCPOC)
-
-	if (I2CDevObj::stop() != 0) {
-		DF_LOG_ERR("error: could not stop I2CDevObj");
-	}
-
-#endif
 
 	if (result != 0) {
 		// TODO: count it as an error and keep going
 		DF_LOG_ERR("error: setting sensor mode failed");
 	}
 
+#endif
 	_measurement_requested = true;
 }
