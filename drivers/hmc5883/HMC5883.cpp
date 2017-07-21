@@ -131,26 +131,17 @@ int HMC5883::hmc5883_init()
 		DF_LOG_ERR("error: sensor configuration B failed");
 		return -EIO;
 	}
-//leave as reference until FIFO issues are resolved
-/*
-	uint8_t config_a=HMC5883_BITS_CONFIG_A_OUTPUT_RATE;
 
-	result = _writeReg(HMC5883_REG_CONFIG_A,&config_a,sizeof(config_a));
-
-	if (result != 0) {
-		DF_LOG_ERR("error: write configuration A failed");
-		return -EIO;
-	}
-
-	uint8_t config_a_read;
-	result = _readReg(HMC5883_REG_CONFIG_A,&config_a_read, sizeof(config_a));
+#if defined(__DF_OCPOC)
+	// Set continuous measurement mode
+	uint8_t mode = HMC5883_BITS_CONFIG_A_CONTINUOUS_75HZ;
+	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
 
 	if (result != 0) {
-		DF_LOG_ERR("error: read configuration A failed");
-		return -EIO;
+		DF_LOG_ERR("error: setting sensor mode failed");
 	}
-*/
-	//DF_LOG_ERR("configuration A: %u",config_a_read);
+
+#endif
 
 	usleep(1000);
 	return 0;
@@ -161,7 +152,7 @@ int HMC5883::start()
 	int result = I2CDevObj::start();
 
 	if (result != 0) {
-		DF_LOG_ERR("error: could not start DevObj");
+		DF_LOG_ERR("error: could not start I2CDevObj");
 		goto exit;
 	}
 
@@ -183,7 +174,15 @@ int HMC5883::start()
 		goto exit;
 	}
 
+#if defined(__DF_OCPOC)
+	result = I2CDevObj::stop();
 
+	if (result != 0) {
+		DF_LOG_ERR("error: could not stop I2CDevObj");
+		goto exit;
+	}
+
+#endif
 	result = DevObj::start();
 
 	if (result != 0) {
@@ -223,12 +222,30 @@ void HMC5883::_measure(void)
 		}	hmc_report;
 #pragma pack(pop)
 
+#if defined(__DF_OCPOC)
+
+		if (I2CDevObj::start() != 0) {
+			DF_LOG_ERR("error: could not start I2CDevObj");
+		}
+
+		/* Configure the I2C bus parameters for the mag sensor. */
+		result = _setSlaveConfig(HMC5883_SLAVE_ADDRESS,
+					 HMC5883_BUS_FREQUENCY_IN_KHZ,
+					 HMC5883_TRANSFER_TIMEOUT_IN_USECS);
+
+		if (result != 0) {
+			DF_LOG_ERR("I2C slave configuration failed");
+		}
+
+#endif
 		result = _readReg(HMC5883_REG_DATA_OUT_X_MSB, (uint8_t *)&hmc_report, sizeof(hmc_report));
 
 		if (result != 0) {
 			m_synchronize.lock();
 			m_sensor_data.error_counter++;
 			m_synchronize.unlock();
+
+            _is_running = false;
 
 		} else {
 
@@ -250,10 +267,18 @@ void HMC5883::_measure(void)
 			m_synchronize.signal();
 			m_synchronize.unlock();
 
+            _is_running = true;
+        }
+#if defined(__DF_OCPOC)
+
+		if (I2CDevObj::stop() != 0) {
+			DF_LOG_ERR("error: could not stop I2CDevObj");
 		}
+
+#endif
 	}
 
-
+#if !defined(__DF_OCPOC)
 	/* Request next measurement. */
 	uint8_t mode = HMC5883_BITS_MODE_SINGLE_MODE;
 	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
@@ -266,6 +291,7 @@ void HMC5883::_measure(void)
 		_is_running = true;
 	}
 
+#endif
 	_measurement_requested = true;
 }
 

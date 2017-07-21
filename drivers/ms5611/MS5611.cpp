@@ -260,6 +260,14 @@ int MS5611::loadCalibration()
 		uint16_t w;
 	} cvt;
 
+#if defined(__BARO_USE_SPI) && defined(__DF_OCPOC)
+
+	if (SPIDevObj::start() != 0) {
+		DF_LOG_ERR("error: could not start SPIDevObj");
+	}
+
+#endif
+
 	for (int i = 0; i < 8; ++i) {
 		uint8_t cmd = ADDR_PROM_SETUP + (i * 2);
 
@@ -286,6 +294,14 @@ int MS5611::loadCalibration()
 		cvt.b[1] = prom_buf[0];
 		memcpy(((uint16_t *)&m_sensor_calibration + i), &cvt.w, sizeof(uint16_t));
 	}
+
+#if defined(__BARO_USE_SPI) && defined(__DF_OCPOC)
+
+	if (SPIDevObj::stop() != 0) {
+		DF_LOG_ERR("error: could not stop SPIDevObj");
+	}
+
+#endif
 
 	DF_LOG_DEBUG("factory_setup: %d", m_sensor_calibration.factory_setup);
 	DF_LOG_DEBUG("c1: %d", m_sensor_calibration.c1_pressure_sens);
@@ -322,6 +338,14 @@ int MS5611::ms5611_init()
 		DF_LOG_ERR("could not set slave config");
 	}
 
+#if defined(__BARO_USE_SPI) && defined(__DF_OCPOC)
+
+	if (SPIDevObj::stop() != 0) {
+		DF_LOG_ERR("error: could not stop SPIDevObj");
+	}
+
+#endif
+
 	/* Reset sensor and load calibration data into internal register */
 	result = reset();
 
@@ -331,12 +355,6 @@ int MS5611::ms5611_init()
 	}
 
 	result = loadCalibration();
-
-#if defined(__BARO_USE_SPI)
-	if (_setBusFrequency(SPI_FREQUENCY_10MHZ) < 0) {
-		printf("Could not set SPI Bus Frequency to 10MHz");
-	}
-#endif
 
 	if (result != 0) {
 		DF_LOG_ERR("error: unable to complete initialization of the MS5611 pressure sensor");
@@ -358,10 +376,25 @@ int MS5611::reset()
 	uint8_t cmd = ADDR_RESET_CMD;
 
 #if defined(__BARO_USE_SPI)
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::start() != 0) {
+		DF_LOG_ERR("error: could not start SPIDevObj");
+	}
+
+#endif
+
 	uint8_t wbuf[1];
 	uint8_t rbuf[1];
 	wbuf[0] = cmd;
 	result = _transfer(wbuf, rbuf, 1);
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::stop() != 0) {
+		DF_LOG_ERR("error: could not stop SPIDevObj");
+	}
+
+#endif
 
 #else
 
@@ -430,11 +463,26 @@ int MS5611::_request(uint8_t cmd)
 	int ret;
 
 #if defined(__BARO_USE_SPI)
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::start() != 0) {
+		DF_LOG_ERR("error: could not start SPIDevObj");
+	}
+
+#endif
+
 	uint8_t wbuf[1];
 	uint8_t rbuf[1];
 
 	wbuf[0] = cmd;
 	ret = _transfer(wbuf, rbuf, 1);
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::stop() != 0) {
+		DF_LOG_ERR("error: could not stop SPIDevObj");
+	}
+
+#endif
 #else
 	_retries = 0;
 	ret = _writeReg(cmd, nullptr, 0);
@@ -459,11 +507,26 @@ int MS5611::_collect(uint32_t &raw)
 	uint8_t cmd = ADDR_CMD_ADC_READ;
 
 #if defined(__BARO_USE_SPI)
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::start() != 0) {
+		DF_LOG_ERR("error: could not start SPIDevObj");
+	}
+
+#endif
+
 	uint8_t buf[4];
 	uint8_t wbuf[4];
 	wbuf[0] = cmd;
 
 	ret = _transfer(&wbuf[0], &buf[0], 4);
+#if defined(__DF_OCPOC)
+
+	if (SPIDevObj::stop() != 0) {
+		DF_LOG_ERR("error: could not stop SPIDevObj");
+	}
+
+#endif
 
 	if (ret < 0) {
 		raw = 0;
