@@ -61,7 +61,7 @@ public:
 		m_fd(-1),
 		_retries(0)
 	{
-		m_id.dev_id_s.bus = DeviceBusType_I2C;
+		m_id.dev_id_s.bus_type = DeviceBusType_I2C;
 	}
 
 	virtual ~I2CDevObj();
