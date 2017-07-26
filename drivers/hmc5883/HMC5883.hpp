@@ -47,7 +47,9 @@ namespace DriverFramework
 
 #if defined(__DF_OCPOC)
 // 75 Hz (max sample rate supported in Continuous Measurement mode)
-#define HMC5883_MEASURE_INTERVAL_US (1000000/75)
+//#define HMC5883_MEASURE_INTERVAL_US (1000000/75)
+// 25 Hz, use with triplex wrapper
+#define HMC5883_MEASURE_INTERVAL_US (1000000/25)
 #else
 // 150 Hz (supported in single measurment mode is up to 160 Hz
 #define HMC5883_MEASURE_INTERVAL_US (1000000/150)
