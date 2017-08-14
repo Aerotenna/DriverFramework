@@ -241,9 +241,13 @@ int I2CDevObj::_writeReg(uint8_t address, uint8_t *in_buffer, int length)
 		int bytes_written = ::write(m_fd, (char *) write_buffer, length + 1);
 
 		if (bytes_written != length + 1) {
-			DF_LOG_ERR("Error: i2c write failed. Reported %d bytes written",
+			DF_LOG_DEBUG("Error: i2c write failed. Reported %d bytes written",
 				   bytes_written);
+#if defined(__DF_SHOW_ERR)
+                        DF_LOG_ERR("Error: i2c write failed. Reported %d bytes written",
+                                   bytes_written);
 
+#endif
 		} else {
 			return 0;
 		}

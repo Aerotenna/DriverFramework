@@ -154,14 +154,14 @@ int MPU9250SPI::mpu9250SPI_init()
 	 * This is only used when FCHOICE is 0b11, FCHOICE_B (inverted) 0x00,
 	 * therefore commented out.
 	 */
-	//uint8_t samplerate_divider = 0;
-	//result = _writeReg(MPUREG_FIFO_EN, samplerate_divider);
-	//if (result != 0) {
-	//	DF_LOG_ERR("sample rate config failed");
-	//}
-	//usleep(1000);
+	uint8_t samplerate_divider = 3;
+	result = _writeReg(MPUREG_SMPLRT_DIV, samplerate_divider);
+	if (result != 0) {
+		DF_LOG_ERR("sample rate config failed");
+	}
+	usleep(1000);
 
-#if defined(__DF_EDISON)
+#if defined(__DF_EDISON) || defined(__DF_OCPOC)
 	//Setting the gyro bandwidth to 250 Hz corresponds to
 	//8kHz sampling frequency which is too high for the Edison.
 	//Therefore, we use the gyro bandwith of 184 Hz which corresponds to 1kHz sampling frequency.
@@ -307,7 +307,7 @@ int MPU9250SPI::start()
 		DF_LOG_ERR("DevObj start failed");
 		return result;
 	}
-
+	DF_LOG_ERR("SPI driver start completed");
 exit:
 	return result;
 }
@@ -404,6 +404,7 @@ void MPU9250SPI::_measure()
 		_is_running = true;
 	}
 
+//	DF_LOG_ERR("SPI int_status %u BITS STATUS %u",int_status,(uint8_t)BITS_INT_STATUS_FIFO_OVERFLOW);
 	if (int_status & BITS_INT_STATUS_FIFO_OVERFLOW) {
 		reset_fifo();
 
@@ -414,7 +415,6 @@ void MPU9250SPI::_measure()
 
 		return;
 	}
-
 	int size_of_fifo_packet;
 
 	if (_mag_enabled) {
@@ -440,7 +440,6 @@ void MPU9250SPI::_measure()
 		m_synchronize.unlock();
 		return;
 	}
-
 	// Allocate a buffer large enough for n complete packets, read from the
 	// sensor FIFO.
 	const unsigned buf_len = (MPU_MAX_LEN_FIFO_IN_BYTES / size_of_fifo_packet) * size_of_fifo_packet;
@@ -452,7 +451,6 @@ void MPU9250SPI::_measure()
 		m_synchronize.unlock();
 		return;
 	}
-
 	const unsigned read_len = MIN((unsigned)bytes_to_read, buf_len);
 	memset(fifo_read_buf, 0x0, buf_len);
 
@@ -470,7 +468,7 @@ void MPU9250SPI::_measure()
 	//FIFO corrupt at 10MHz.
 	_setBusFrequency(SPI_FREQUENCY_5MHZ);
 #else
-	_setBusFrequency(SPI_FREQUENCY_10MHZ);
+	_setBusFrequency(SPI_FREQUENCY_1MHZ);
 #endif
 
 	result = _bulkRead(MPUREG_FIFO_R_W, fifo_read_buf, read_len);
@@ -481,7 +479,6 @@ void MPU9250SPI::_measure()
 		m_synchronize.unlock();
 		return;
 	}
-
 	for (unsigned packet_index = 0; packet_index < read_len / size_of_fifo_packet; ++packet_index) {
 
 		fifo_packet *report = (fifo_packet *)(&fifo_read_buf[packet_index	* size_of_fifo_packet]);
@@ -613,8 +610,9 @@ void MPU9250SPI::_measure()
 		}
 
 #endif
-
 		_publish(m_sensor_data);
+
+//		reset_fifo();
 
 		m_synchronize.signal();
 		m_synchronize.unlock();

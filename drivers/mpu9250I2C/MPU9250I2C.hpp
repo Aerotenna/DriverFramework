@@ -41,7 +41,7 @@
 #define MPU9250I2C_SLAVE_ADDRESS 0x68       /* 7-bit slave address */
 
 // update frequency 1000 Hz
-#define MPU9250I2C_MEASURE_INTERVAL_US 500//1000
+#define MPU9250I2C_MEASURE_INTERVAL_US 100000//1000
 
 #define MPU9250I2C_BUS_FREQUENCY_IN_KHZ 400
 #define MPU9250I2C_TRANSFER_TIMEOUT_IN_USECS 900
@@ -56,17 +56,29 @@ public:
 		I2CImuSensor(device_path, MPU9250I2C_MEASURE_INTERVAL_US, false), // false = sensor has no mag
 		_last_temp_c(0.0f),
 		_temp_initialized(false),
-		_packets_per_cycle_filtered(1.0)
+		_packets_per_cycle_filtered(1.0),
+		_is_running(false)
 	{
 		m_id.dev_id_s.devtype = DRV_DF_DEVTYPE_MPU9250I2C;
 		m_id.dev_id_s.address = MPU9250I2C_SLAVE_ADDRESS;
 	}
-
+        MPU9250I2C(const char *device_name, const char *device_path, bool mag_enabled = false) :
+                I2CImuSensor(device_name, device_path, MPU9250I2C_MEASURE_INTERVAL_US, false), // false = sensor has no mag
+                _last_temp_c(0.0f),
+                _temp_initialized(false),
+                _packets_per_cycle_filtered(1.0),
+		_is_running(false)
+        {
+                m_id.dev_id_s.devtype = DRV_DF_DEVTYPE_MPU9250I2C;
+                m_id.dev_id_s.address = MPU9250I2C_SLAVE_ADDRESS;
+        }
 	// @return 0 on success, -errno on failure
 	virtual int start();
 
 	// @return 0 on success, -errno on failure
 	virtual int stop();
+
+	int is_running();
 
 protected:
 	virtual void _measure();
@@ -87,6 +99,8 @@ private:
 	float _last_temp_c;
 	bool _temp_initialized;
 	float _packets_per_cycle_filtered;
+
+	int _is_running;
 };
 
 }

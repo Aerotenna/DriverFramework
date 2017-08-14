@@ -86,7 +86,10 @@ public:
 		I2CDevObj("I2CImuSensor", device_path, IMU_CLASS_PATH, sample_interval_usec),
 		m_mag_enabled(mag_enabled)
 	{}
-
+        I2CImuSensor(const char *device_name, const char *device_path, unsigned int sample_interval_usec, bool mag_enabled = false) :
+                I2CDevObj(device_name, device_path, IMU_CLASS_PATH, sample_interval_usec),
+                m_mag_enabled(mag_enabled)
+	{}
 	~I2CImuSensor() {}
 
 	static int getSensorData(DevHandle &h, struct imu_sensor_data &out_data, bool is_new_data_required)

@@ -137,6 +137,8 @@ struct fifo_packet {
 #define BITS_DLPF_CFG_10HZ		0x05
 #define BITS_DLPF_CFG_5HZ		0x06
 
+#define BITS_FIFO_MODE_PURGE		0x40 //doesn't write to FIFO if buffer is full
+
 // Length of the FIFO used by the sensor to buffer unread
 // sensor data. The FIFO size of the MPU9250I2C is 1024 bytes.
 // However, we sample and read with 1 kHz, so that most often
@@ -244,7 +246,8 @@ int MPU9250I2C::mpu9250I2C_init()
 	// ATTENTION: Make sure that you read the comment about the sample rate
 	// divider below when changing the cutoff frequency. Depening on the value
 	// you set the sample rate of the sensor will change!
-	bits = BITS_DLPF_CFG_44HZ;
+	//bits = BITS_DLPF_CFG_184HZ | BITS_FIFO_MODE_PURGE;
+	bits = BITS_DLPF_CFG_184HZ;
 	result = _writeReg(MPUREG_CONFIG, &bits, 1);
 
 	if (result < 0) {
@@ -259,7 +262,12 @@ int MPU9250I2C::mpu9250I2C_init()
 	//
 	// If DLPF is disabled (0 or 7) Gyroscope_Output_Rate = 8 kHz
 	// otherwise Gyroscope_Output_Rate = 1kHz
+
+#if defined(__DF_OCPOC)
+	bits = 3;//3
+#else
 	bits = 0;
+#endif
 	result = _writeReg(MPUREG_SMPLRT_DIV, &bits, 1);
 
 	if (result < 0) {
@@ -322,6 +330,7 @@ int MPU9250I2C::start()
 		return result;
 	}
 
+
 	result = _setSlaveConfig(MPU9250I2C_SLAVE_ADDRESS,
 				 MPU9250I2C_BUS_FREQUENCY_IN_KHZ,
 				 MPU9250I2C_TRANSFER_TIMEOUT_IN_USECS);
@@ -330,7 +339,13 @@ int MPU9250I2C::start()
 		DF_LOG_ERR("Could not set slave config");
 	}
 
-	/* Try to talk to the sensor. */
+	result = mpu9250I2C_init();
+
+	if (result != 0) {
+		DF_LOG_ERR("error: IMU sensor initialization failed, sensor read thread not started");
+		goto exit;
+	}
+	// Try to talk to the sensor. 
 	uint8_t sensor_id;
 	result = _readReg(MPUREG_WHOAMI, &sensor_id, 1);
 
@@ -345,13 +360,14 @@ int MPU9250I2C::start()
 		result = -1;
 		goto exit;
 	}
-
+/*
 	result = mpu9250I2C_init();
 
 	if (result != 0) {
 		DF_LOG_ERR("error: IMU sensor initialization failed, sensor read thread not started");
 		goto exit;
 	}
+*/
 
 	result = DevObj::start();
 
@@ -360,6 +376,7 @@ int MPU9250I2C::start()
 		return result;
 	}
 
+	DF_LOG_ERR("I2C imu started");
 exit:
 	return result;
 }
@@ -424,9 +441,15 @@ void MPU9250I2C::_measure()
 		m_synchronize.lock();
 		++m_sensor_data.error_counter;
 		m_synchronize.unlock();
+		_is_running = false;
+		DF_LOG_ERR("_measure read failed");
 		return;
 	}
+	else {
+		_is_running = true;
+	}
 
+//	DF_LOG_ERR("I2C int_status %u BITS STATUS %u",int_status,(uint8_t)BITS_INT_STATUS_FIFO_OVERFLOW);
 	if (int_status & BITS_INT_STATUS_FIFO_OVERFLOW) {
 		reset_fifo();
 
@@ -437,20 +460,21 @@ void MPU9250I2C::_measure()
 
 		return;
 	}
-
+DF_LOG_ERR("check1a");
 	int size_of_fifo_packet = sizeof(fifo_packet);
 
 	// Get FIFO byte count to read and floor it to the report size.
 	int bytes_to_read = get_fifo_count() / size_of_fifo_packet * size_of_fifo_packet;
 	_packets_per_cycle_filtered = (0.95f * _packets_per_cycle_filtered) + (0.05f * (bytes_to_read / size_of_fifo_packet));
 
+DF_LOG_ERR("check1b");
 	if (bytes_to_read <= 0) {
 		m_synchronize.lock();
 		++m_sensor_data.error_counter;
 		m_synchronize.unlock();
 		return;
 	}
-
+DF_LOG_ERR("check2");
 	// Allocate a buffer large enough for n complete packets, read from the
 	// sensor FIFO.
 	const unsigned buf_len = (MPU_MAX_LEN_FIFO_IN_BYTES / size_of_fifo_packet) * size_of_fifo_packet;
@@ -467,7 +491,7 @@ void MPU9250I2C::_measure()
 		m_synchronize.unlock();
 		return;
 	}
-
+DF_LOG_ERR("check3");
 	for (unsigned packet_index = 0; packet_index < (read_len / size_of_fifo_packet); ++packet_index) {
 
 		fifo_packet *report = (fifo_packet *)(&fifo_read_buf[packet_index	* size_of_fifo_packet]);
@@ -531,8 +555,6 @@ void MPU9250I2C::_measure()
 				m_synchronize.unlock();
 				return;
 			}
-
-			_last_temp_c = temp_c;
 		}
 
 		m_synchronize.lock();
@@ -574,13 +596,26 @@ void MPU9250I2C::_measure()
 		}
 
 #endif
-
+DF_LOG_ERR("check4");
 		_publish(m_sensor_data);
+
+		//added to deal with FIFO overflows, which occur every 15 _measure() calls at any 'reasonable'
+		// values for MPU9250I2C_MEASURE_INTERVAL_US. Tested from 100 to 1000.
+//		reset_fifo();
 
 		m_synchronize.signal();
 		m_synchronize.unlock();
 	}
 }
+
+//added so that voting class in triplex wrapper can check and only use 'healthy' modules
+int MPU9250I2C::is_running()
+{
+
+        return _is_running;
+
+}
+
 
 int MPU9250I2C::_publish(struct imu_sensor_data &data)
 {
