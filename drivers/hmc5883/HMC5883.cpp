@@ -124,6 +124,16 @@ int HMC5883::hmc5883_init()
 		return -EIO;
 	}
 
+#if defined(__DF_OCPOC)
+	// Set continuous measurement mode
+	uint8_t mode = HMC5883_BITS_CONFIG_A_CONTINUOUS_75HZ;
+	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
+
+	if (result != 0) {
+		DF_LOG_ERR("error: setting sensor mode failed");
+	}
+
+#endif
 
 	usleep(1000);
 	return 0;
@@ -134,7 +144,7 @@ int HMC5883::start()
 	int result = I2CDevObj::start();
 
 	if (result != 0) {
-		DF_LOG_ERR("error: could not start DevObj");
+		DF_LOG_ERR("error: could not start I2CDevObj");
 		goto exit;
 	}
 
@@ -226,7 +236,7 @@ void HMC5883::_measure(void)
 		}
 	}
 
-
+#if !defined(__DF_OCPOC)
 	/* Request next measurement. */
 	uint8_t mode = HMC5883_BITS_MODE_SINGLE_MODE;
 	result = _writeReg(HMC5883_REG_MODE, &mode, sizeof(mode));
@@ -235,7 +245,7 @@ void HMC5883::_measure(void)
 		// TODO: count it as an error and keep going
 		DF_LOG_ERR("error: setting sensor mode failed");
 	}
-
+#endif
 	_measurement_requested = true;
 }
 
