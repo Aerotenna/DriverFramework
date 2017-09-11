@@ -38,7 +38,7 @@
 namespace DriverFramework
 {
 #if defined(__DF_OCPOC)
-  #define MAG_DEVICE_PATH "/dev/i2c-0"
+  #define MAG_DEVICE_PATH "/dev/i2c-4"
 #else
   #define MAG_DEVICE_PATH "/dev/iic-2"
 #endif
